@@ -135,7 +135,7 @@ def FGWMixup(graph_list, label_list, feature_list, nodes, measure='degree', metr
             mixup_graph = sp_to_adjency(mixup_graph, threshinf=0, threshsup=threshsup, metric=metric)
             # mixup_label = ori_label
 
-    return mixup_graph, mixup_label, mixup_feature, mixup_w, n_iter, time
+    return mixup_graph, mixup_label, mixup_feature, mixup_w, n_iter, time, mixup_lambda
     
     
 

@@ -7,6 +7,7 @@ import time
 
 import torch
 import torch.nn.functional as F
+from graph_exporter.export import export
 from torch.autograd import Variable
 import pickle
 
@@ -19,6 +20,8 @@ from sklearn.model_selection import StratifiedKFold
 import matplotlib
 from matplotlib import pyplot as plt
 import networkx as nx
+from torch_geometric.data import Data
+from graph_exporter.typing import MixupItem, FGWMixupConfig
 from tqdm import tqdm
 
 import random
@@ -43,8 +46,8 @@ def prepare_dataset_x(dataset):
         # all_attr = []
         for idx in range(len(dataset)):
             # all_attr.append(dataset[idx][0].ndata['node_attr'])
-            dataset[idx][0].ndata['node_attr'] = torch.cat((F.one_hot(dataset[idx][0].ndata['node_labels'].squeeze(), num_classes=3), \
-                dataset[idx][0].ndata['node_attr']), dim=-1).type(torch.FloatTensor)
+            dataset[idx][0].ndata['node_attr'] = torch.cat((dataset[idx][0].ndata['node_attr'], \
+                F.one_hot(dataset[idx][0].ndata['node_labels'].squeeze(), num_classes=3)), dim=-1).type(torch.FloatTensor)
         # all_attr = torch.cat(all_attr, dim=0)
         # mean_attr = torch.mean(all_attr, dim=0)
         # std_attr = torch.std(all_attr, dim=0)
@@ -53,22 +56,27 @@ def prepare_dataset_x(dataset):
             
     elif dataset.name == 'PROTEINS':
         for idx in range(len(dataset)):
-            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].squeeze(), num_classes=3).squeeze().type(torch.FloatTensor)
+            # all_attr.append(dataset[idx][0].ndata['node_attr'])
+            dataset[idx][0].ndata['node_attr'] = torch.cat((dataset[idx][0].ndata['node_attr'], \
+                                                            F.one_hot(dataset[idx][0].ndata['node_labels'].squeeze(), num_classes=3),), dim=-1).type(torch.FloatTensor)
     elif dataset.name == 'NCI1':
         for idx in range(len(dataset)):
-            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].squeeze(), num_classes=37).squeeze().type(torch.FloatTensor)
+            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].to(torch.long).squeeze(), num_classes=37).squeeze().type(torch.FloatTensor)
     elif dataset.name == 'NCI109':
         for idx in range(len(dataset)):
-            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].squeeze(), num_classes=38).squeeze().type(torch.FloatTensor)
+            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].to(torch.long).squeeze(), num_classes=38).squeeze().type(torch.FloatTensor)
     elif dataset.name == 'DD':
         for idx in range(len(dataset)):
-            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].squeeze(), num_classes=89).squeeze().type(torch.FloatTensor)
+            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].to(torch.long).squeeze(), num_classes=89).squeeze().type(torch.FloatTensor)
     elif dataset.name == 'MUTAG':
         for idx in range(len(dataset)):
-            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].squeeze(), num_classes=7).squeeze().type(torch.FloatTensor)
+            dataset[idx][0].ndata['node_attr'] = F.one_hot(dataset[idx][0].ndata['node_labels'].to(torch.long).squeeze(), num_classes=7).squeeze().type(torch.FloatTensor)
 
     else:
         if 'node_attr' not in dataset[0][0].ndata.keys():
+
+            raise NotImplementedError("This needs to be handled as in the other cases -> Constant ... ")
+
             degs = []
             for idx in range(len(dataset)):
                 degs.extend(dataset[idx][0].in_degrees().tolist())
@@ -329,9 +337,10 @@ if __name__ == '__main__':
             for idx in nontest_idx:
                 if idx not in train_idx:
                     val_idx.append(idx)
-            train_dataset = dgl.data.utils.Subset(dataset, train_idx)
-            val_dataset = dgl.data.utils.Subset(dataset, val_idx)
-            test_dataset = dgl.data.utils.Subset(dataset, test_idx)
+            # train_dataset = dgl.data.utils.Subset(dataset, train_idx)
+            # val_dataset = dgl.data.utils.Subset(dataset, val_idx)
+            # test_dataset = dgl.data.utils.Subset(dataset, test_idx)
+
             # print(train_dataset.indices)
             # print(len(train_dataset), train_dataset)
 
@@ -339,6 +348,8 @@ if __name__ == '__main__':
             new_graph = {'graph_list': [], 'label_list': []}
             aug_indices = []
             num_all_data = len(dataset)
+
+            mixup_items: list[MixupItem] = []
 
             avg_num_nodes, avg_num_edges, avg_density, median_num_nodes, median_num_edges, median_density, max_num_nodes = stat_graph(dataset)
             # logger.info(f"avg num nodes of graphs: { avg_num_nodes }")
@@ -371,15 +382,20 @@ if __name__ == '__main__':
                 
                 else:
                     logger.info(f'Generating Mixup Graphs')
-                    class_graphs = split_class_x_graphs(train_dataset)
+                    # class_graphs = split_class_x_graphs(train_dataset)
+                    class_graphs = split_class_x_graphs(dataset)
 
-                    num_sample = int( len(train_dataset) * aug_ratio )
+                    # num_sample = int( len(train_dataset) * aug_ratio )
+                    num_sample = int( len(dataset) * aug_ratio )
                     num_class = len(class_graphs)
                     iter_list = []
                     time_list = []
                     if num_class < 20:
                         mixup_types = (num_class - 1) * num_class / 2
                         type_num_sample = max(1, int( num_sample / mixup_types ))
+
+                        print(f"Generating {mixup_types * type_num_sample} mixup graphs ...")
+
                         for i in range(num_class):
                             for j in range(i+1, num_class):
                                 logger.info(f"Mixup-1 label: {class_graphs[i][0]}, num_graphs:{len(class_graphs[i][1])}" )
@@ -392,13 +408,16 @@ if __name__ == '__main__':
                                     graph_i = class_graphs[i][1][idx_i]
                                     graph_j = class_graphs[j][1][idx_j]
 
+                                    idx_i_absolute = class_graphs[i][3][idx_i]
+                                    idx_j_absolute = class_graphs[j][3][idx_j]
+
                                     graphs = [graph_i, graph_j]
                                     # print(graph_i, graph_j)
                                     labels = [class_graphs[i][0], class_graphs[j][0]]
                                     
                                     features = [class_graphs[i][2][idx_i], class_graphs[j][2][idx_j]]
                                     
-                                    mixup_graph, mixup_label, mixup_feature, mixup_weights, n_iter, time = FGWMixup(graphs, labels, features, nodes=int(median_num_nodes), measure=args.measure, \
+                                    mixup_graph, mixup_label, mixup_feature, mixup_weights, n_iter, time, mixup_lambda = FGWMixup(graphs, labels, features, nodes=int(median_num_nodes), measure=args.measure, \
                                                                                                                 metric=args.metric, alpha=args.alpha, k=args.beta_k, rank=args.rank, bapg=args.bapg, rho=args.rho)
                                     iter_list.append(n_iter)
                                     time_list.append(time)
@@ -440,6 +459,15 @@ if __name__ == '__main__':
                                     if 'edge_labels' in dataset[0][0].edata.keys():
                                         dgl_graph.edata['edge_labels'] = torch.bernoulli(torch.empty(dgl_graph.num_edges(), 1).uniform_(0, 1)).to(torch.int64)
                                     dgl_label = mixup_label
+
+                                    pyg_mixup_graph = Data(edge_index=torch.nonzero(A).T, x=mixup_feature, y=mixup_label.unsqueeze(0))
+                                    mixup_items.append(
+                                        MixupItem(
+                                            graph_dict=pyg_mixup_graph.to_dict(),
+                                            lam=mixup_lambda,
+                                            source_indices=(idx_i_absolute, idx_j_absolute),
+                                        )
+                                    )
 
                                     dataset.graph_lists.append(dgl_graph)
                                     new_graph['graph_list'].append(dgl_graph)
@@ -520,6 +548,17 @@ if __name__ == '__main__':
                                 print(mixup_graph.shape,flush=True)
                                 print(mixup_graph,flush=True)
                                 print((src, dst),flush=True)
+
+
+                    export(mixup_items, args.dataset, FGWMixupConfig(
+                        seed=args.seed,
+                        measure=args.measure,
+                        metric=args.metric,
+                        fgw_alpha=args.alpha,
+                        mixup_alpha=args.beta_k,
+                        loss_fun=args.loss_fun,
+                    ))
+
 
                     new_graph['label_list'] = torch.stack(new_graph['label_list'], dim=0)
                     logger.info(f"Avg FGW Converge Iterations: { np.mean(iter_list) }")

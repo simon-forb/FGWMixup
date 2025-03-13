@@ -170,7 +170,8 @@ def split_class_x_graphs(dataset):
     for class_label in set(y_list):
         c_graph_list = [all_graphs_list[i] for i in range(len(y_list)) if y_list[i] == class_label]
         c_node_x_list = [all_node_x_list[i] for i in range(len(y_list)) if y_list[i] == class_label]
-        class_graphs.append( ( np.array(class_label), c_graph_list, c_node_x_list ) )
+        c_index_list = [i for i in range(len(y_list)) if y_list[i] == class_label]
+        class_graphs.append( ( np.array(class_label), c_graph_list, c_node_x_list, c_index_list ) )
 
     return class_graphs
 
