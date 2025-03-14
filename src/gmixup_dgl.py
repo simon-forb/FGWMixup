@@ -252,6 +252,7 @@ if __name__ == '__main__':
     parser.add_argument('--bn', default=False, action='store_true', help='Only for Graphormer(GD)')
     parser.add_argument('--early_stopping', type=int, default=50)
     parser.add_argument('--rho', type=float, default=0.1)
+    parser.add_argument("--fixed_lam", type=float, help="fixed value for mixup lambda")
 
     args = parser.parse_args()
 
@@ -418,7 +419,7 @@ if __name__ == '__main__':
                                     features = [class_graphs[i][2][idx_i], class_graphs[j][2][idx_j]]
                                     
                                     mixup_graph, mixup_label, mixup_feature, mixup_weights, n_iter, time, mixup_lambda = FGWMixup(graphs, labels, features, nodes=int(median_num_nodes), measure=args.measure, \
-                                                                                                                metric=args.metric, alpha=args.alpha, k=args.beta_k, rank=args.rank, bapg=args.bapg, rho=args.rho)
+                                                                                                                metric=args.metric, alpha=args.alpha, k=args.beta_k, rank=args.rank, bapg=args.bapg, rho=args.rho, fixed_lam=args.fixed_lam)
                                     iter_list.append(n_iter)
                                     time_list.append(time)
                                     if True in np.isnan(mixup_graph):

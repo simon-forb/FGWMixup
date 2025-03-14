@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import copy
+from typing import Union
+
 import cv2
 import numpy as np
 import torch
@@ -75,7 +79,7 @@ def sp_to_adjency(C, threshinf=0.2, threshsup=1.8, metric='sp'):
 
 
 
-def FGWMixup(graph_list, label_list, feature_list, nodes, measure='degree', metric='sp', k=0.2, a=0, b=0, alpha=0.95, loss_fun='square_loss', rank=None, bapg=False, rho=0.1):
+def FGWMixup(graph_list, label_list, feature_list, nodes, measure='degree', metric='sp', k=0.2, a=0, b=0, alpha=0.95, loss_fun='square_loss', rank=None, bapg=False, rho=0.1, fixed_lam: Union[float, None] = None):
     graph_0 = graph_list[0]
     graph_1 = graph_list[1]
 
@@ -85,7 +89,10 @@ def FGWMixup(graph_list, label_list, feature_list, nodes, measure='degree', metr
     dist_1[np.isinf(dist_1)] = 999
     dist_list = [dist_0, dist_1]
 
-    mixup_lambda = np.random.beta(k, k)
+    if fixed_lam is None:
+        mixup_lambda = np.random.beta(k, k)
+    else:
+        mixup_lambda = fixed_lam
     lambdas = [mixup_lambda, 1-mixup_lambda]
 
     node_size = min(int(mixup_lambda * graph_0.shape[0] + (1-mixup_lambda) * graph_1.shape[0]), 400)
