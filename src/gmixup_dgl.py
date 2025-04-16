@@ -558,6 +558,7 @@ if __name__ == '__main__':
                         fgw_alpha=args.alpha,
                         mixup_alpha=args.beta_k,
                         loss_fun=args.loss_fun,
+                        rho=args.rho,
                     ))
 
 
