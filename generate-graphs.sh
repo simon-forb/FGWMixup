@@ -2,13 +2,15 @@
 
 # Meta
 dataset="MUTAG"
-aug_ratio=0.1
+aug_ratio=5.0
 CUDA_VISIBLE_DEVICES=0
+running_jobs=0
+max_jobs=6
 
 # HPO
 fgw_alphas=("0.05" "0.5" "0.95")
 rhos=("0.1" "1" "10")
-mixup_alphas=("0.1" "0.3" "0.5" "1.0" "5.0")
+mixup_alphas=("0.2")
 
 for fgw_alpha in "${fgw_alphas[@]}"; do
   for rho in "${rhos[@]}"; do
@@ -40,10 +42,17 @@ for fgw_alpha in "${fgw_alphas[@]}"; do
         --act=relu \
         --bapg \
         --rho=$rho \
-        --aug_ratio=$aug_ratio
+        --aug_ratio=$aug_ratio &
+
+
+	((running_jobs++))
+	if (( running_jobs >= max_jobs )); then
+		wait -n
+		((running_jobs--))
+	fi
 
     done
   done
 done
 
-
+wait
