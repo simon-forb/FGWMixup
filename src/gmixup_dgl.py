@@ -74,29 +74,9 @@ def prepare_dataset_x(dataset):
 
     else:
         if 'node_attr' not in dataset[0][0].ndata.keys():
-
-            raise NotImplementedError("This needs to be handled as in the other cases -> Constant ... ")
-
-            degs = []
             for idx in range(len(dataset)):
-                degs.extend(dataset[idx][0].in_degrees().tolist())
-            max_degree = max(degs)
-            degs = torch.tensor(degs, dtype=torch.float32)
-
-            if max_degree < 2000:
-                # dataset.transform = T.OneHotDegree(max_degree)
-
-                for idx in range(len(dataset)):
-                    degrees = dataset[idx][0].in_degrees()
-                    dataset[idx][0].ndata['node_attr'] = F.one_hot(degrees, num_classes=max_degree+1).to(torch.float)
-            else:
-                mean, std = degs.mean().item(), degs.std().item()
-                for idx in range(len(dataset)):
-                    degrees = dataset[idx][0].in_degrees()
-                    dataset[idx][0].ndata['node_attr'] = ( (degrees - mean) / std ).view( -1, 1 )
-        else:
-            for idx in range(len(dataset)):
-                dataset[idx][0].ndata['node_attr'] = dataset[idx][0].ndata['node_attr'].type(torch.FloatTensor)
+                num_nodes = dataset[idx][0].num_nodes()
+                dataset[idx][0].ndata['node_attr'] = torch.ones(num_nodes, 1).to(torch.float)
     return dataset
 
 
