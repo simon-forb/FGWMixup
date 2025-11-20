@@ -1,4 +1,4 @@
-from time import time
+from time import time, perf_counter
 import logging
 import os
 import os.path as osp
@@ -398,6 +398,7 @@ if __name__ == '__main__':
                                     
                                     features = [class_graphs[i][2][idx_i], class_graphs[j][2][idx_j]]
                                     
+                                    start_time = perf_counter()
                                     mixup_graph, mixup_label, mixup_feature, mixup_weights, n_iter, time, mixup_lambda = FGWMixup(graphs, labels, features, nodes=int(median_num_nodes), measure=args.measure, \
                                                                                                                 metric=args.metric, alpha=args.alpha, k=args.beta_k, rank=args.rank, bapg=args.bapg, rho=args.rho, fixed_lam=args.fixed_lam)
                                     iter_list.append(n_iter)
@@ -447,6 +448,7 @@ if __name__ == '__main__':
                                             graph_dict=pyg_mixup_graph.to_dict(),
                                             lam=mixup_lambda,
                                             source_indices=(idx_i_absolute, idx_j_absolute),
+                                            creation_time_us=int((perf_counter() - start_time) * 1e6)
                                         )
                                     )
 
